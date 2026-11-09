@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Search and Actions Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <form method="GET" action="{{ url_for('index') }}" class="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search documents..." 
+                   class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 flex-1 max-w-md">
+            
+            <select name="category" onchange="this.form.submit()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                <option value="ALL" {% if category == 'ALL' %}selected{% endif %}>All Categories</option>
+                <option value="Finance" {% if category == 'Finance' %}selected{% endif %}>Finance</option>
+                <option value="Legal" {% if category == 'Legal' %}selected{% endif %}>Legal</option>
+                <option value="HR" {% if category == 'HR' %}selected{% endif %}>HR</option>
+                <option value="Engineering" {% if category == 'Engineering' %}selected{% endif %}>Engineering</option>
+            </select>
+            <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-200">Search</button>
+        </form>
+
+        {% if current_user.role != 'VIEWER' %}
+        <button type="button" onclick="openUploadModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2">
+            Upload Document
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Document List & Inspector Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- List View -->
+        <div class="lg:col-span-2 space-y-3">
+            {% if docs|length == 0 %}
+            <div class="border border-dashed border-slate-800 rounded-xl p-12 text-center text-slate-500">
+                <p class="text-sm">No documents found matching current filter or role access.</p>
+            </div>
+            {% endif %}
+
+            {% for doc in docs %}
+            <!-- Card Click routed through JavaScript function to prevent linter parse errors -->
+            <div data-doc-url="{{ url_for('index', doc_id=doc.id, search=search, category=category) }}" 
+                 onclick="navigateToDoc(this.getAttribute('data-doc-url'))" 
+                 class="p-4 rounded-xl border transition cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 {% if selected_doc and selected_doc.id == doc.id %}bg-slate-900 border-indigo-500 shadow-lg{% else %}bg-slate-900/60 border-slate-800 hover:border-slate-700{% endif %}">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-semibold text-white">{{ doc.title }}</h3>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">{{ doc.category }}</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                        <span>Owner: {{ doc.owner_name }}</span>
+                        <span>•</span>
+                        <span>{{ (doc.size_bytes / 1024)|round(1) }} KB</span>
+                    </div>
+                    <div class="mt-2">
+                        {% if doc.owner_id == current_user.id %}
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Owner</span>
+                        {% elif current_user.role == 'ADMIN' %}
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Admin Metadata Only</span>
+                        {% else %}
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Granted Access</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                    <a href="{{ url_for('download', doc_id=doc.id) }}" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg">
+                        Download
+                    </a>
+                    
+                    <!-- Edit Button -->
+                    {% if doc.owner_id == current_user.id %}
+                    <button type="button" 
+                            data-doc-id="{{ doc.id }}" 
+                            data-doc-title="{{ doc.title }}" 
+                            data-doc-category="{{ doc.category }}" 
+                            onclick="handleEditButtonClick(this)" 
+                            class="text-xs bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-800/60 text-indigo-300 px-2.5 py-1.5 rounded-lg">
+                        Edit
+                    </button>
+                    {% endif %}
+
+                    {% if doc.owner_id == current_user.id %}
+                    <a href="{{ url_for('delete_document', doc_id=doc.id) }}" onclick="return confirm('Permanently delete this document?')" 
+                       class="text-xs bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 px-2.5 py-1.5 rounded-lg">
+                        Delete
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Inspector Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 h-fit space-y-4">
+            {% if selected_doc %}
+                <div>
+                    <div class="text-xs font-mono text-indigo-400">{{ selected_doc.id }}</div>
+                    <h4 class="text-sm font-bold text-white mt-1 break-all">{{ selected_doc.title }}</h4>
+                </div>
+
+                <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs font-mono text-slate-300 break-all select-all">
+                    {{ selected_doc.encrypted_content }}
+                </div>
+
+                <!-- Access Control List -->
+                <div class="space-y-3">
+                    <div class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Access Control List (ACL)</div>
+                    <div class="space-y-2">
+                        {% for p in permissions %}
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                            <div>
+                                <div class="font-medium text-slate-200">{{ p.user_name }} {% if p.user_id == selected_doc.owner_id %}(Owner){% endif %}</div>
+                                <div class="text-[11px] text-slate-400">{{ p.level }} • Granted by {{ p.granted_by }}</div>
+                            </div>
+                            {% if selected_doc.owner_id == current_user.id and p.user_id != selected_doc.owner_id %}
+                            <a href="{{ url_for('revoke_permission', doc_id=selected_doc.id, target_user_id=p.user_id) }}" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">
+                                Revoke
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if selected_doc.owner_id == current_user.id %}
+                    <form method="POST" action="{{ url_for('grant_permission', doc_id=selected_doc.id) }}" class="pt-3 border-t border-slate-800 space-y-2 text-xs">
+                        <label class="block font-medium text-slate-300">Grant Named Access:</label>
+                        <select name="target_user_id" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-300">
+                            {% for u in all_users %}
+                                {% if u.id != selected_doc.owner_id %}
+                                <option value="{{ u.id }}">{{ u.name }} ({{ u.email }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="flex gap-2">
+                            <select name="level" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-300 flex-1">
+                                <option value="READ">READ</option>
+                                <option value="EDIT">EDIT</option>
+                            </select>
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium">Grant</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="text-xs text-slate-500 italic">Only the document owner can grant or revoke access.</div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="py-12 text-center text-slate-500 text-xs">
+                    Select a document to inspect ACL permissions and encrypted payload.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal with Real File Browser -->
+<div id="uploadModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Upload File from Computer</h3>
+            <button type="button" onclick="closeUploadModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="space-y-3 text-xs">
+            <div>
+                <label class="block text-slate-300 mb-1">Select File (.pdf, .docx, .txt)</label>
+                <input type="file" name="file" required accept=".pdf,.docx,.txt"
+                       class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+
+            <div>
+                <label class="block text-slate-300 mb-1">Category Classification</label>
+                <select name="category" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-indigo-500">
+                    <option value="Finance">Finance</option>
+                    <option value="Legal">Legal</option>
+                    <option value="HR">HR</option>
+                    <option value="Engineering">Engineering</option>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeUploadModal()" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium">Encrypt & Ingest</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Document Modal -->
+<div id="editDocModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Edit Document Metadata & File</h3>
+            <button type="button" onclick="closeEditDocModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form id="editDocForm" method="POST" action="" enctype="multipart/form-data" class="space-y-3 text-xs">
+            <div>
+                <label class="block text-slate-300 mb-1">Document Title</label>
+                <input type="text" id="edit_doc_title" name="title" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Category</label>
+                <select id="edit_doc_category" name="category" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+                    <option value="Finance">Finance</option>
+                    <option value="Legal">Legal</option>
+                    <option value="HR">HR</option>
+                    <option value="Engineering">Engineering</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Replace File Payload (Optional)</label>
+                <input type="file" name="file" accept=".pdf,.docx,.txt"
+                       class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 file:mr-3 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-indigo-600 file:text-white cursor-pointer">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeEditDocModal()" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Pure JavaScript Section (Cleanly separated from HTML attributes) -->
+<script>
+function navigateToDoc(targetUrl) {
+    if (targetUrl) {
+        window.location.assign(targetUrl);
+    }
+}
+
+function openUploadModal() {
+    var modal = document.getElementById('uploadModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeUploadModal() {
+    var modal = document.getElementById('uploadModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function handleEditButtonClick(buttonElement) {
+    var docId = buttonElement.getAttribute('data-doc-id');
+    var docTitle = buttonElement.getAttribute('data-doc-title');
+    var docCategory = buttonElement.getAttribute('data-doc-category');
+    openEditDocModal(docId, docTitle, docCategory);
+}
+
+function openEditDocModal(docId, title, category) {
+    var form = document.getElementById('editDocForm');
+    var titleInput = document.getElementById('edit_doc_title');
+    var categoryInput = document.getElementById('edit_doc_category');
+    var modal = document.getElementById('editDocModal');
+
+    if (form) {
+        form.action = '/edit/' + encodeURIComponent(docId);
+    }
+    if (titleInput) {
+        titleInput.value = title || '';
+    }
+    if (categoryInput) {
+        categoryInput.value = category || 'Finance';
+    }
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeEditDocModal() {
+    var modal = document.getElementById('editDocModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+</script>
+{% endblock %}

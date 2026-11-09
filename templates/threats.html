@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 text-xs text-slate-300">
+    <h3 class="text-base font-bold text-white">THREATS.md — System Threat Modeling & Mitigation Report</h3>
+    <div class="space-y-4">
+        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-1">
+            <h4 class="font-semibold text-indigo-400 text-sm">1. Broken Object Level Authorization (BOLA / IDOR)</h4>
+            <p><strong>Threat:</strong> An attacker alters document IDs in URL parameters (/download/doc_payroll_2026) to exfiltrate other departments' files.</p>
+            <p><strong>Mitigation:</strong> authorize_read() enforces live SQLite ACL lookups on every request before streaming bytes. Client-side hiding is never relied upon.</p>
+            <p class="text-emerald-400"><strong>Status:</strong> Closed and verified in automated tests.</p>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-1">
+            <h4 class="font-semibold text-indigo-400 text-sm">2. Overprivileged Administrator Bypass</h4>
+            <p><strong>Threat:</strong> Administrators use platform privileges to access ungranted employee files.</p>
+            <p><strong>Mitigation:</strong> Zero-trust separation. Admin can view document metadata, but file download endpoints return 403 Forbidden without an explicit grant.</p>
+            <p class="text-emerald-400"><strong>Status:</strong> Closed.</p>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-1">
+            <h4 class="font-semibold text-indigo-400 text-sm">3. Audit Log Tampering & Repudiation</h4>
+            <p><strong>Threat:</strong> An attacker modifies or deletes database logs to cover up illicit downloads.</p>
+            <p><strong>Mitigation:</strong> Every audit entry stores SHA-256(previous_hash + payload). Modifying any historical log breaks the chain.</p>
+            <p class="text-emerald-400"><strong>Status:</strong> Cryptographically chained structure enforced.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

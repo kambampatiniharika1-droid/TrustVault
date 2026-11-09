@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 p-5 rounded-xl border border-slate-800">
+        <div>
+            <h2 class="text-base font-bold text-white">Identity & Credential Management</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Administrate accounts, reset passwords, change assigned roles, and configure emails.</p>
+        </div>
+        <button onclick="document.getElementById('createUserModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">
+            + Create New User
+        </button>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px]">
+                    <tr>
+                        <th class="p-3.5">Name</th>
+                        <th class="p-3.5">Email (Login Identity)</th>
+                        <th class="p-3.5">Role</th>
+                        <th class="p-3.5">User ID</th>
+                        <th class="p-3.5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 font-sans">
+                    {% for u in users %}
+                    <tr class="hover:bg-slate-800/30">
+                        <td class="p-3.5 font-medium text-white">{{ u.name }}</td>
+                        <td class="p-3.5 text-slate-300 font-mono">{{ u.email }}</td>
+                        <td class="p-3.5">
+                            <span class="text-[10px] px-2 py-0.5 rounded font-mono font-semibold {% if u.role == 'ADMIN' %}bg-purple-950 text-purple-300 border border-purple-800{% elif u.role == 'OWNER' %}bg-indigo-950 text-indigo-300 border border-indigo-800{% else %}bg-slate-800 text-slate-300 border border-slate-700{% endif %}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td class="p-3.5 text-slate-500 font-mono text-[11px]">{{ u.id }}</td>
+                        <td class="p-3.5 text-right space-x-2">
+                            <button onclick="openEditModal('{{ u.id }}', '{{ u.name }}', '{{ u.email }}', '{{ u.role }}')" class="text-indigo-400 hover:text-indigo-300 font-medium">
+                                Edit / Reset Pass
+                            </button>
+                            {% if u.id != current_user.id %}
+                            <a href="{{ url_for('delete_user', user_id=u.id) }}" onclick="return confirm('Delete user account {{ u.email }}?')" class="text-rose-400 hover:text-rose-300 font-medium">
+                                Delete
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Create User -->
+<div id="createUserModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Create New TrustVault Account</h3>
+            <button onclick="document.getElementById('createUserModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('create_user') }}" class="space-y-3 text-xs">
+            <div>
+                <label class="block text-slate-300 mb-1">Full Name</label>
+                <input type="text" name="name" required placeholder="John Doe" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Email</label>
+                <input type="email" name="email" required placeholder="john@example.com" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Password</label>
+                <input type="password" name="password" required placeholder="Secure Password" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Role</label>
+                <select name="role" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+                    <option value="VIEWER">VIEWER (Read-only on explicitly granted files)</option>
+                    <option value="OWNER">OWNER (Can upload, manage permissions, delete own files)</option>
+                    <option value="ADMIN">ADMIN (System telemetry, user management, tamper checks)</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="document.getElementById('createUserModal').classList.add('hidden')" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit User -->
+<div id="editUserModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Edit User Credentials</h3>
+            <button onclick="document.getElementById('editUserModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <form id="editUserForm" method="POST" action="" class="space-y-3 text-xs">
+            <div>
+                <label class="block text-slate-300 mb-1">Full Name</label>
+                <input type="text" id="edit_name" name="name" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Email</label>
+                <input type="email" id="edit_email" name="email" required class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Reset Password (leave empty to keep unchanged)</label>
+                <input type="password" name="password" placeholder="New password" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+            </div>
+            <div>
+                <label class="block text-slate-300 mb-1">Role</label>
+                <select id="edit_role" name="role" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200">
+                    <option value="VIEWER">VIEWER</option>
+                    <option value="OWNER">OWNER</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="document.getElementById('editUserModal').classList.add('hidden')" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium">Update User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(userId, name, email, role) {
+    document.getElementById('editUserForm').action = '/users/edit/' + userId;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_role').value = role;
+    document.getElementById('editUserModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

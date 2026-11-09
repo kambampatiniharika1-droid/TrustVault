@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="flex items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div>
+            <h3 class="text-sm font-bold text-white">Sequential Cryptographic Audit Log</h3>
+            <p class="text-xs text-slate-400">Records are cryptographically linked using SHA-256 state hashing ($H_n = \text{SHA-256}(H_{n-1} \parallel \text{Data})$).</p>
+        </div>
+        <div class="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+            Chain Verified
+        </div>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase">
+                <tr>
+                    <th class="p-3">Timestamp (UTC)</th>
+                    <th class="p-3">Actor</th>
+                    <th class="p-3">Action</th>
+                    <th class="p-3">Resource Target</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3">SHA-256 Chain Hash</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                {% for log in logs %}
+                <tr>
+                    <td class="p-3 text-slate-400 whitespace-nowrap">{{ log.timestamp }}</td>
+                    <td class="p-3 text-slate-200 font-sans">
+                        <div>{{ log.actor_email }}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">{{ log.actor_id }}</div>
+                    </td>
+                    <td class="p-3">
+                        <span class="text-[10px] px-2 py-0.5 rounded font-semibold {% if log.status == 'DENIED' %}bg-rose-950 text-rose-300 border border-rose-800{% else %}bg-indigo-950 text-indigo-300 border border-indigo-800{% endif %}">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td class="p-3 text-slate-300 font-sans">
+                        <div>{{ log.resource_id }}</div>
+                        <div class="text-[11px] text-slate-500">{{ log.details }}</div>
+                    </td>
+                    <td class="p-3 font-sans">
+                        {% if log.status == 'SUCCESS' %}
+                        <span class="text-emerald-400 font-semibold">OK</span>
+                        {% else %}
+                        <span class="text-rose-400 font-semibold">DENIED</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-3 text-[11px] text-indigo-400">
+                        <div>{{ log.hash[:16] }}...</div>
+                        <div class="text-[10px] text-slate-500 font-mono">prev: {{ log.previous_hash[:12] }}...</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

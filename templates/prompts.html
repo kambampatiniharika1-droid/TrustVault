@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 text-xs text-slate-300">
+    <h3 class="text-base font-bold text-white">PROMPTS.md — AI Co-Engineering Journal</h3>
+    <div class="space-y-3">
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span class="text-indigo-400 font-mono text-[11px]">Entry 01 — 2026-11-03: Admin Bypass Identified</span>
+            <p class="mt-1"><strong>AI Flaw:</strong> Generated code granting universal download rights if user_role == 'ADMIN'.</p>
+            <p class="text-emerald-400"><strong>Correction:</strong> Removed admin payload access, adhering strictly to zero-trust principles.</p>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span class="text-indigo-400 font-mono text-[11px]">Entry 02 — 2026-11-04: Revocation Latency</span>
+            <p class="mt-1"><strong>AI Flaw:</strong> Suggested 1-hour presigned URLs which would allow continued access after permission revocation.</p>
+            <p class="text-emerald-400"><strong>Correction:</strong> Switched to streaming downloads verified directly on each request.</p>
+        </div>
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span class="text-indigo-400 font-mono text-[11px]">Entry 03 — 2026-11-05: Missing Failed Attempts in Audit</span>
+            <p class="mt-1"><strong>AI Flaw:</strong> Logged only successful downloads, ignoring blocked attempts.</p>
+            <p class="text-emerald-400"><strong>Correction:</strong> Added ACCESS_DENIED audit events to log unauthorized access probes.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

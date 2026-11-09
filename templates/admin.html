@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+            <div class="text-xs text-slate-400">Total Vault Documents</div>
+            <div class="text-2xl font-bold text-white mt-1">{{ doc_count }}</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+            <div class="text-xs text-slate-400">Total Audit Events</div>
+            <div class="text-2xl font-bold text-indigo-400 mt-1">{{ audit_count }}</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+            <div class="text-xs text-slate-400">Blocked Intrusion Probes</div>
+            <div class="text-2xl font-bold text-rose-400 mt-1">{{ denied_count }}</div>
+        </div>
+    </div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h4 class="text-sm font-bold text-white mb-3">Admin Document Index (Metadata Only — Zero-Trust Enforced)</h4>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px]">
+                    <tr>
+                        <th class="p-3">Doc ID</th>
+                        <th class="p-3">Title</th>
+                        <th class="p-3">Category</th>
+                        <th class="p-3">Owner</th>
+                        <th class="p-3">Direct Payload Access Probe</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for doc in docs %}
+                    <tr>
+                        <td class="p-3 font-mono text-indigo-400">{{ doc.id }}</td>
+                        <td class="p-3 font-medium text-white">{{ doc.title }}</td>
+                        <td class="p-3 text-slate-400">{{ doc.category }}</td>
+                        <td class="p-3 text-slate-300">{{ doc.owner_name }}</td>
+                        <td class="p-3">
+                            <a href="{{ url_for('download', doc_id=doc.id) }}" class="text-xs text-rose-400 hover:text-rose-300 underline">
+                                Probe Download (Will Trigger 403 & Log)
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
