@@ -10,7 +10,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 
 app = Flask(__name__)
 app.secret_key = "trustvault-production-secret-encryption-token"
-DB_FILE = "trustvault.db"
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_FILE = os.path.join(BASE_DIR, "trustvault.db")
+SCHEMA_FILE = os.path.join(BASE_DIR, "schema.sql")
 
 # ============================================================================
 # DATABASE SETUP
@@ -21,32 +23,53 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
-    # If database file doesn't exist or table needs updating
-    recreate = False
-    if not os.path.exists(DB_FILE):
-        recreate = True
-    else:
-        # Check if password_hash column exists
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(users)")
-        cols = [c["name"] for c in cursor.fetchall()]
-        conn.close()
-        if "password_hash" not in cols:
-            os.remove(DB_FILE)
-            recreate = True
 
-    if recreate:
-        with open("schema.sql", "r") as f:
-            script = f.read()
-        conn = get_db()
-        conn.executescript(script)
-        # Ensure passwords match standard hash
-        default_hash = generate_password_hash("Password@123")
-        conn.execute("UPDATE users SET password_hash = ?", (default_hash,))
-        conn.commit()
+def init_db():
+    """Create the database schema if it is missing, without deleting user data."""
+    if not os.path.exists(SCHEMA_FILE):
+        raise FileNotFoundError(
+            f"Database schema file not found: {SCHEMA_FILE}. "
+            "Make sure schema.sql is committed to your repository."
+        )
+
+    conn = get_db()
+    try:
+        # Check whether the users table exists in the database Render opened.
+        table = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()
+
+        if table is None:
+            # This also creates the other tables defined in schema.sql.
+            with open(SCHEMA_FILE, "r", encoding="utf-8") as schema_file:
+                conn.executescript(schema_file.read())
+
+            # Keep the original project's default password behavior for seeded users.
+            default_hash = generate_password_hash("Password@123")
+            conn.execute("UPDATE users SET password_hash = ?", (default_hash,))
+            conn.commit()
+        else:
+            # Upgrade an older users table safely; never delete the database.
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(users)").fetchall()
+            }
+            if "password_hash" not in columns:
+                conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+                default_hash = generate_password_hash("Password@123")
+                conn.execute(
+                    "UPDATE users SET password_hash = ? "
+                    "WHERE password_hash IS NULL OR password_hash = ''",
+                    (default_hash,),
+                )
+                conn.commit()
+    finally:
         conn.close()
+
+
+# Run during module import as well as local execution. Production servers such
+# as Gunicorn import app.py and do not execute the __main__ block.
+init_db()
 
 # ============================================================================
 # CRYPTOGRAPHIC AUDIT LOGGING ENGINE
@@ -614,5 +637,4 @@ def prompts_view():
     return render_template("prompts.html")
 
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, port=5000)
